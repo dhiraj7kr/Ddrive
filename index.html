@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud — Workspace</title>
+<style>
+  :root {
+    --zen-bg: #09090d;
+    --zen-surface: #111116;
+    --zen-surface-hover: #161622;
+    --zen-border: rgba(255, 255, 255, 0.04);
+    --zen-border-heavy: rgba(255, 255, 255, 0.1);
+    --zen-text: #f3f3f5;
+    --zen-text-muted: #76767e;
+    --zen-accent: #ff4b4b; /* Traditional Japanese Vermillion */
+    --zen-accent-dim: rgba(255, 75, 75, 0.15);
+    --radius-sharp: 6px;
+    --sidebar-width: 230px;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
+  body { 
+    background: var(--zen-bg); 
+    color: var(--zen-text); 
+    font-size: 13px; 
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    letter-spacing: -0.01em;
+  }
+
+  #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+  
+  /* Topbar Component */
+  header {
+    background: var(--zen-surface);
+    border-bottom: 1px solid var(--zen-border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; text-decoration: none; color: var(--zen-text); letter-spacing: 0.05em; }
+  .brand span { color: var(--zen-accent); }
+  
+  .search-container { position: relative; flex: 1; max-width: 400px; margin: 0 auto; }
+  .search-container svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--zen-text-muted); }
+  .search-input { width: 100%; background: var(--zen-bg); border: 1px solid var(--zen-border); border-radius: var(--radius-sharp); padding: 8px 12px 8px 36px; color: var(--zen-text); outline: none; font-size: 12px; transition: all 0.2s ease; }
+  .search-input:focus { border-color: var(--zen-text-muted); }
+
+  .kbd-hint { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--zen-surface); border: 1px solid var(--zen-border); padding: 2px 6px; border-radius: 4px; font-size: 10px; color: var(--zen-text-muted); }
+
+  /* Workspace Layout */
+  .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
+  
+  /* Sidebar Navigation Layout */
+  aside {
+    width: var(--sidebar-width);
+    background: var(--zen-surface);
+    padding: 24px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--zen-border);
+    transition: transform 0.3s ease;
+  }
+  
+  .btn-fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--zen-accent);
+    padding: 10px;
+    border-radius: var(--radius-sharp);
+    font-weight: 500;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--zen-accent);
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .btn-fab:hover { background: var(--zen-accent-dim); }
+
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 75px; left: 12px; right: 12px;
+    background: var(--zen-surface);
+    border: 1px solid var(--zen-border-heavy);
+    border-radius: var(--radius-sharp);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 1000;
+  }
+  .dropdown-menu.show { display: block; }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: var(--zen-text);
+    font-size: 12px;
+  }
+  .dropdown-item:hover { background: rgba(255,255,255,0.03); }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sharp);
+    cursor: pointer;
+    color: var(--zen-text-muted);
+    font-weight: 400;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .nav-item:hover { color: var(--zen-text); background: rgba(255, 255, 255, 0.02); }
+  .nav-item.active { background: rgba(255, 255, 255, 0.04); color: var(--zen-text); font-weight: 500; border-left: 2px solid var(--zen-accent); padding-left: 10px; }
+  .nav-item svg { width: 14px; height: 14px; }
+
+  /* Main Presentation Component */
+  main { flex: 1; display: flex; flex-direction: column; background: var(--zen-bg); overflow: hidden; }
+  
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--zen-border);
+  }
+  .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 14px; color: var(--zen-text-muted); }
+  .breadcrumb a { color: var(--zen-text-muted); text-decoration: none; padding: 2px 4px; }
+  .breadcrumb a:hover { color: var(--zen-text); }
+  .breadcrumb .active-node { color: var(--zen-text); font-weight: 500; }
+
+  .view-controls { display: flex; gap: 4px; }
+  .view-toggle-btn { background: transparent; border: 1px solid var(--zen-border); color: var(--zen-text-muted); padding: 6px 10px; border-radius: var(--radius-sharp); cursor: pointer; }
+  .view-toggle-btn.active { background: var(--zen-surface); color: var(--zen-text); border-color: var(--zen-border-heavy); }
+  
+  .explorer-container { flex: 1; overflow-y: auto; padding: 24px; position: relative; }
+  
+  /* Grid Presentation Architecture */
+  .file-grid { display: none; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; }
+  .file-grid.active { display: grid; }
+  
+  .grid-card {
+    background: var(--zen-surface);
+    border: 1px solid var(--zen-border);
+    border-radius: var(--radius-sharp);
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s ease;
+  }
+  .grid-card:hover { border-color: var(--zen-border-heavy); }
+  
+  .grid-card .preview-thumbnail {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .grid-card .preview-thumbnail svg { width: 40px; height: 40px; }
+  .grid-card .preview-img { max-width: 100%; max-height: 100%; object-fit: cover; border-radius: 4px; }
+  
+  .grid-card .title { font-size: 12px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--zen-text); text-align: center; width: 100%; }
+  .grid-card .size { font-size: 10px; color: var(--zen-text-muted); text-align: center; margin-top: 4px; }
+
+  /* List Presentation Architecture */
+  .file-table { width: 100%; border-collapse: collapse; display: none; }
+  .file-table.active { display: table; }
+  .file-table th { text-align: left; padding: 10px 16px; color: var(--zen-text-muted); font-weight: 400; border-bottom: 1px solid var(--zen-border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .file-table td { padding: 10px 16px; border-bottom: 1px solid var(--zen-border); vertical-align: middle; }
+  .file-table tr:hover td { background: rgba(255,255,255,0.01); }
+
+  /* Floating Context Flyouts */
+  .actions-cell { position: relative; text-align: right; }
+  .btn-action-trigger { background: transparent; border: none; color: var(--zen-text-muted); cursor: pointer; padding: 4px; }
+  .btn-action-trigger:hover { color: var(--zen-text); }
+
+  .context-menu {
+    display: none;
+    position: absolute;
+    right: 8px; top: 24px;
+    background: var(--zen-surface);
+    border: 1px solid var(--zen-border-heavy);
+    border-radius: var(--radius-sharp);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    z-index: 110;
+    width: 140px;
+    overflow: hidden;
+  }
+  .context-menu.show { display: block; }
+  .context-menu button {
+    width: 100%; background: none; border: none; color: var(--zen-text); padding: 8px 12px; text-align: left; font-size: 12px; cursor: pointer; }
+  .context-menu button:hover { background: rgba(255,255,255,0.04); }
+
+  /* Modal Windows Base */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal-content { background: var(--zen-surface); border: 1px solid var(--zen-border); border-radius: var(--radius-sharp); width: 100%; max-width: 440px; padding: 24px; }
+  
+  .modal-content.preview-pane { max-width: 90vw; width: 1100px; height: 85vh; display: flex; flex-direction: column; padding: 0; }
+  .preview-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--zen-border); }
+  .preview-body { flex: 1; overflow: auto; display: flex; background: #050508; position: relative; }
+  .preview-iframe { width: 100%; height: 100%; border: none; background: #fff; }
+  
+  /* Live Code Workspace Canvas Area */
+  .zen-editor-area { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .zen-textarea { flex: 1; width: 100%; background: #07070a; border: none; color: #a9b7c6; font-family: "SF Mono", Consolas, monospace; padding: 20px; font-size: 13px; outline: none; resize: none; line-height: 1.6; }
+
+  /* Command Palette Modal Structure */
+  .palette-pane { max-width: 550px; width: 100%; background: var(--zen-surface); border: 1px solid var(--zen-border-heavy); border-radius: 8px; padding: 0; overflow: hidden; box-shadow: 0 24px 50px rgba(0,0,0,0.7); transform: translateY(-40px); }
+  .palette-search-wrapper { padding: 14px; border-bottom: 1px solid var(--zen-border); display: flex; align-items: center; gap: 10px; }
+  .palette-input { width: 100%; background: transparent; border: none; color: var(--zen-text); outline: none; font-size: 14px; }
+  .palette-results { max-height: 280px; overflow-y: auto; padding: 8px; }
+  .palette-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-sharp); cursor: pointer; color: var(--zen-text-muted); }
+  .palette-row.selected, .palette-row:hover { background: rgba(255,255,255,0.03); color: var(--zen-text); }
+
+  /* Universal Layout Atoms */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-sharp); border: 1px solid var(--zen-border); background: rgba(255,255,255,0.02); color: var(--zen-text); cursor: pointer; font-size: 12px; }
+  .btn.primary { background: var(--zen-text); color: var(--zen-bg); border: none; font-weight: 500; }
+  .btn.primary:hover { opacity: 0.9; }
+  
+  #toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; width: 280px; }
+  .toast-card { background: var(--zen-surface); border: 1px solid var(--zen-border-heavy); border-radius: var(--radius-sharp); padding: 12px 16px; color: var(--zen-text); font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border-left: 3px solid var(--zen-accent); }
+
+  #drag-drop-zone { position: absolute; inset: 0; background: rgba(255,75,75,0.03); border: 1px dashed var(--zen-accent); z-index: 500; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .menu-toggle { display: none; background: transparent; border: none; color: var(--zen-text); cursor: pointer; }
+  
+  @media (max-width: 768px) {
+    .menu-toggle { display: block; }
+    aside { position: absolute; left: 0; top: 0; bottom: 0; z-index: 999; transform: translateX(-100%); background: var(--zen-surface); width: 210px; }
+    aside.open { transform: translateX(0); }
+    .brand span { display: inline; }
+    .file-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--zen-text-muted); width: 100%; }
+  .spin { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.01) 25%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.01) 75%); background-size: 200% 100%; animation: shim 1.5s infinite; }
+  @keyframes shim { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div id="app-container">
+  <header>
+    <div style="display:flex; align-items:center; gap:12px">
+      <button class="menu-toggle" onclick="toggleSidebarViewLayout()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <a class="brand" href="#" onclick="routeActiveNavigation('')">
+        Cloud<span>.</span>
+      </a>
+    </div>
+
+    <div class="search-container">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search-input" class="search-input" placeholder="Search files and nodes..." oninput="executeSearchLookupPipeline()" />
+      <div class="kbd-hint">⌘K</div>
+    </div>
+
+    <div class="header-actions" style="display:flex; gap:10px;">
+      <button class="btn" title="Synchronize Tree Layout" onclick="refreshActiveDirectoryNode()">Sync</button>
+      <button class="btn" style="border-color:transparent; color:var(--zen-text-muted);" onclick="wipeGatewaySession()">Reset</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside id="app-sidebar">
+      <button class="btn-fab" onclick="toggleDropdownMenuMenu(event)">
+        + Action Node
+      </button>
+      <div id="new-menu" class="dropdown-menu">
+        <div class="dropdown-item" onclick="invokeFileInputBridge('file-input')">File Upload</div>
+        <div class="dropdown-item" onclick="invokeFileInputBridge('folder-input')">Folder Upload</div>
+        <div class="dropdown-item" onclick="launchDirectoryModalOverlay()">Create Folder</div>
+      </div>
+
+      <a class="nav-item active" id="nav-drive" href="#" onclick="routeActiveNavigation('')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Workspace
+      </a>
+      <a class="nav-item" id="nav-bookmarks" href="#" onclick="renderSpecialCategory('bookmarks')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        Bookmarks
+      </a>
+      <a class="nav-item" id="nav-recent" href="#" onclick="renderSpecialCategory('recent')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Recents
+      </a>
+    </aside>
+
+    <main id="drop-target-area">
+      <div id="drag-drop-zone">
+        <p style="font-size:13px; color:var(--zen-accent);">Drop items to stream to repository node allocation</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="breadcrumb" id="breadcrumb-flow"></div>
+        <div class="view-controls">
+          <button id="toggle-grid-btn" class="view-toggle-btn active" onclick="shiftActiveViewPresentationMode('grid')">Grid</button>
+          <button id="toggle-list-btn" class="view-toggle-btn" onclick="shiftActiveViewPresentationMode('list')">List</button>
+        </div>
+      </div>
+
+      <div class="explorer-container">
+        <div id="wrapper-grid" class="file-grid active"></div>
+
+        <table id="wrapper-list" class="file-table">
+          <thead>
+            <tr>
+              <th style="width: 65%;">Name</th>
+              <th style="width: 15%;">Size</th>
+              <th style="width: 15%;">Kind</th>
+              <th style="width: 5%;"></th>
+            </tr>
+          </thead>
+          <tbody id="list-tbody-runtime"></tbody>
+        </table>
+
+        <div id="view-empty-state" class="empty-state" style="display:none;">
+          <p>Empty Node Environment</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modal-folder-create" class="modal-overlay">
+  <div class="modal-content">
+    <h3 style="font-weight:500; font-size:14px; margin-bottom:12px;">Initialize Target Folder</h3>
+    <input type="text" id="field-new-folder-name" class="search-input" style="padding-left:12px; margin-bottom:16px;" placeholder="Folder Name" onkeydown="if(event.key==='Enter')executeRemoteDirectoryAllocation()" />
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn" onclick="dismissAllSystemModals()">Cancel</button>
+      <button class="btn primary" onclick="executeRemoteDirectoryAllocation()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-share" class="modal-overlay">
+  <div class="modal-content">
+    <h3 style="font-weight:500; font-size:14px; margin-bottom:12px;">Share Reference Links</h3>
+    <input type="text" id="share-link-app" class="search-input" style="padding-left:12px; margin-bottom:16px; background:rgba(0,0,0,0.2)" readonly onclick="this.select()" />
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="btn primary" onclick="executeShareClipboardCopy()">Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-auth-interceptor" class="modal-overlay">
+  <div class="modal-content" style="max-width:400px; border:1px solid var(--zen-accent);">
+    <h3 style="font-weight:500; font-size:14px; margin-bottom:6px; color:var(--zen-accent);">GitHub Authentication Protocol Required</h3>
+    <p style="color:var(--zen-text-muted); font-size:11px; margin-bottom:16px; line-height:1.4;">The active access token was revoked or returned a 401 response. Paste your Personal Access Token (PAT) below to restore mount state. This will be securely loaded inside local storage.</p>
+    <input type="password" id="field-interceptor-token" class="search-input" style="padding-left:12px; margin-bottom:16px;" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" onkeydown="if(event.key==='Enter')commitInterceptorToken()" />
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn primary" onclick="commitInterceptorToken()">Authenticate Node</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-palette" class="modal-overlay">
+  <div class="modal-content palette-pane">
+    <div class="palette-search-wrapper">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="palette-search-input" class="palette-input" placeholder="Type a command or file path..." oninput="handlePaletteSearch()" />
+    </div>
+    <div class="palette-results" id="palette-results-container"></div>
+  </div>
+</div>
+
+<div id="modal-preview" class="modal-overlay">
+  <div class="modal-content preview-pane">
+    <div class="preview-header">
+      <h3 id="preview-target-title" style="font-size:13px; font-weight:500;">Preview Pane</h3>
+      <div style="display:flex; gap:8px;" id="preview-action-block">
+        <button class="btn" id="preview-download-btn">Download</button>
+        <button class="btn primary" onclick="dismissAllSystemModals()">Close Space</button>
+      </div>
+    </div>
+    <div class="preview-body" id="preview-render-viewport"></div>
+  </div>
+</div>
+
+<input type="file" id="file-input" multiple style="display:none" onchange="ingestLocalPayloadStream(event)" />
+<input type="file" id="folder-input" multiple webkitdirectory style="display:none" onchange="ingestLocalPayloadStream(event)" />
+<div id="toast-container"></div>
+
+<script>
+  let storageState = { 
+    token: '', 
+    repo: 'dhiraj7kr/drive', 
+    branch: 'main' 
+  };
+
+  let currentDirectoryPath = '';
+  let activeDirectoryFilesMap = [];
+  let currentViewLayoutMode = 'grid';
+
+  window.addEventListener('DOMContentLoaded', () => {
+    // Check local storage configuration state mapping first
+    const cachedConfig = localStorage.getItem('cloud_secure_config');
+    if (cachedConfig) {
+      storageState = JSON.parse(cachedConfig);
+    }
+
+    currentViewLayoutMode = localStorage.getItem('cloud_view_mode') || 'grid';
+    shiftActiveViewPresentationMode(currentViewLayoutMode);
+
+    const routeParams = new URLSearchParams(window.location.search);
+    const tracePathRoute = routeParams.get('path');
+    
+    routeActiveNavigation(tracePathRoute ? decodeURIComponent(tracePathRoute) : '');
+    initializeGlobalEventInterceptors();
+  });
+
+  function wipeGatewaySession() {
+    localStorage.removeItem('cloud_secure_config');
+    storageState.token = '';
+    dispatchNotificationToast('Session reference configurations cleared.');
+    triggerAuthOverlayInterceptor();
+  }
+
+  function triggerAuthOverlayInterceptor() {
+    document.getElementById('modal-auth-interceptor').classList.add('open');
+    document.getElementById('field-interceptor-token').focus();
+  }
+
+  function commitInterceptorToken() {
+    const customToken = document.getElementById('field-interceptor-token').value.trim();
+    if(!customToken) return;
+    
+    storageState.token = customToken;
+    localStorage.setItem('cloud_secure_config', JSON.stringify(storageState));
+    document.getElementById('modal-auth-interceptor').classList.remove('open');
+    document.getElementById('field-interceptor-token').value = '';
+    dispatchNotificationToast('Authentication metrics refreshed.');
+    routeActiveNavigation(currentDirectoryPath);
+  }
+
+  async function sendRequestGateway(urlPath, restVerb = 'GET', bodyData = null) {
+    // If no token exists at request time, safely intercept execution cycle immediately
+    if (!storageState.token) {
+      triggerAuthOverlayInterceptor();
+      return { error: { message: "Token configuration state absent." } };
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${storageState.token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    };
+    const config = { method: restVerb, headers };
+    if (bodyData) config.body = JSON.stringify(bodyData);
+
+    try {
+      const response = await fetch(`https://api.github.com${urlPath}`, config);
+      
+      // Catch specific GitHub access system integration 401 exceptions cleanly
+      if (response.status === 401) {
+        triggerAuthOverlayInterceptor();
+        return { error: { message: "Unauthorized token authentication fault vector reached." } };
+      }
+
+      if (response.status === 204) return {};
+      const payload = await response.json();
+      if (!response.ok) return { error: payload };
+      return payload;
+    } catch (err) {
+      return { error: { message: err.message } };
+    }
+  }
+
+  async function routeActiveNavigation(targetPath) {
+    currentDirectoryPath = targetPath;
+    buildZenBreadcrumbs();
+    
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('nav-drive').classList.add('active');
+
+    const gridEl = document.getElementById('wrapper-grid');
+    const listEl = document.getElementById('list-tbody-runtime');
+    
+    gridEl.innerHTML = Array(6).fill('<div class="grid-card shimmer" style="height:110px;"></div>').join('');
+    listEl.innerHTML = Array(3).fill('<tr><td colspan="4" class="shimmer" style="height:38px;"></td></tr>').join('');
+    document.getElementById('view-empty-state').style.display = 'none';
+
+    const endpoint = `/repos/${storageState.repo}/contents/${targetPath}?ref=${storageState.branch}`;
+    const payload = await sendRequestGateway(endpoint);
+
+    if (payload.error) {
+      activeDirectoryFilesMap = [];
+      renderFileSystemExplorerView([]);
+      return;
+    }
+
+    activeDirectoryFilesMap = Array.isArray(payload) ? payload : [payload];
+    activeDirectoryFilesMap.sort((a, b) => (a.type === 'dir' ? -1 : 1) || a.name.localeCompare(b.name));
+
+    renderFileSystemExplorerView(activeDirectoryFilesMap);
+    logHistoryRecord(targetPath, 'dir');
+  }
+
+  function buildZenBreadcrumbs() {
+    const container = document.getElementById('breadcrumb-flow');
+    const nodes = currentDirectoryPath ? currentDirectoryPath.split('/') : [];
+    let html = `<a href="#" onclick="routeActiveNavigation('')">root</a>`;
+    
+    let pathTracker = '';
+    nodes.forEach((node, idx) => {
+      pathTracker += (idx === 0 ? node : '/' + node);
+      if (idx === nodes.length - 1) {
+        html += ` <span>/</span> <span class="active-node">${node}</span>`;
+      } else {
+        html += ` <span>/</span> <a href="#" onclick="routeActiveNavigation('${pathTracker.replace(/'/g, "\\'")}')">${node}</a>`;
+      }
+    });
+    container.innerHTML = html;
+  }
+
+  function renderFileSystemExplorerView(files) {
+    const viewGrid = document.getElementById('wrapper-grid');
+    const viewList = document.getElementById('list-tbody-runtime');
+    const emptyState = document.getElementById('view-empty-state');
+
+    viewGrid.innerHTML = '';
+    viewList.innerHTML = '';
+
+    const cleanList = files.filter(f => f.name !== '.gitkeep');
+    if (cleanList.length === 0) {
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    const savedBookmarks = JSON.parse(localStorage.getItem('cloud_bookmarks') || '[]');
+
+    cleanList.forEach(file => {
+      const isDir = file.type === 'dir';
+      const uniqueHash = file.path.replace(/[^a-zA-Z0-9]/g, '_');
+      const isBookmarked = savedBookmarks.includes(file.path);
+
+      let iconHtml = isDir ? fetchFolderIcon() : fetchFileIcon(file.name);
+      if (!isDir && resolveFormatKind(file.name) === 'image') {
+        iconHtml = `<img class="preview-img" src="https://raw.githubusercontent.com/${storageState.repo}/${storageState.branch}/${file.path}" loading="lazy" />`;
+      }
+
+      // Card Engine Node Generation
+      const card = document.createElement('div');
+      card.className = 'grid-card';
+      card.innerHTML = `
+        <div class="preview-thumbnail">${iconHtml}</div>
+        <span class="title" title="${file.name}">${file.name}</span>
+        <span class="size">${isDir ? 'Node folder' : formatSize(file.size)}</span>
+        <div class="actions-cell" style="position:absolute; right:4px; top:4px;">
+          <button class="btn-action-trigger" onclick="invokeDropdownOverlay(event, '${file.path}', 'grid')">⋮</button>
+          <div class="context-menu" id="ctx-grid-${uniqueHash}">
+            ${!isDir ? `<button onclick="triggerWorkspaceCanvas('${file.path}', '${file.name}')">Open Canvas</button>` : ''}
+            <button onclick="toggleBookmarkAction('${file.path}')">${isBookmarked ? 'Unpin' : 'Pin Bookmark'}</button>
+            <button onclick="triggerShareModal('${file.path}')">Share</button>
+            ${!isDir ? `<button onclick="executeDownload('${file.path}', '${file.name}')">Download</button>` : ''}
+            <button onclick="executePurgeSequence('${file.path}', '${file.type}', '${file.name}')" style="color:var(--zen-accent)">Delete</button>
+          </div>
+        </div>
+      `;
+      card.addEventListener('click', (e) => {
+        if (!e.target.closest('.actions-cell')) {
+          if (isDir) routeActiveNavigation(file.path);
+          else triggerWorkspaceCanvas(file.path, file.name);
+        }
+      });
+      viewGrid.appendChild(card);
+
+      // Inline List Presentation Layout
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+            <div style="width:16px; height:16px; display:inline-flex; align-items:center;">${isDir ? fetchFolderIcon() : fetchFileIcon(file.name)}</div>
+            <span>${file.name}</span>
+          </div>
+        </td>
+        <td style="color:var(--zen-text-muted); font-size:12px;">${isDir ? '--' : formatSize(file.size)}</td>
+        <td style="color:var(--zen-text-muted); font-size:11px; text-transform:uppercase;">${isDir ? 'Directory' : file.name.split('.').pop()}</td>
+        <td class="actions-cell">
+          <button class="btn-action-trigger" onclick="invokeDropdownOverlay(event, '${file.path}', 'list')">⋮</button>
+          <div class="context-menu" id="ctx-list-${uniqueHash}">
+            ${!isDir ? `<button onclick="triggerWorkspaceCanvas('${file.path}', '${file.name}')">Open Canvas</button>` : ''}
+            <button onclick="toggleBookmarkAction('${file.path}')">${isBookmarked ? 'Unpin' : 'Pin'}</button>
+            <button onclick="triggerShareModal('${file.path}')">Share</button>
+            <button onclick="executePurgeSequence('${file.path}', '${file.type}', '${file.name}')" style="color:var(--zen-accent)">Delete</button>
+          </div>
+        </td>
+      `;
+      tr.querySelector('td:first-child').addEventListener('click', () => {
+        if (isDir) routeActiveNavigation(file.path);
+        else triggerWorkspaceCanvas(file.path, file.name);
+      });
+      viewList.appendChild(tr);
+    });
+  }
+
+  function invokeDropdownOverlay(e, path, targetView) {
+    e.stopPropagation();
+    document.querySelectorAll('.context-menu').forEach(m => m.style.display = 'none');
+    const hash = path.replace(/[^a-zA-Z0-9]/g, '_');
+    const menu = document.getElementById(`ctx-${targetView}-${hash}`);
+    if (menu) menu.style.display = 'block';
+  }
+
+  // LIVE CODE CANVAS & INTERACTIVE WORKSPACE EDITOR
+  async function triggerWorkspaceCanvas(path, filename) {
+    const modal = document.getElementById('modal-preview');
+    const title = document.getElementById('preview-target-title');
+    const viewport = document.getElementById('preview-render-viewport');
+    const actionBlock = document.getElementById('preview-action-block');
+
+    title.textContent = filename;
+    viewport.innerHTML = '<div class="spin" style="width:20px; height:20px; border:2px solid var(--zen-accent); border-top-color:transparent; border-radius:50%; margin:auto;"></div>';
+    modal.classList.add('open');
+
+    const kind = resolveFormatKind(filename);
+    const directCdnUrl = `https://raw.githubusercontent.com/${storageState.repo}/${storageState.branch}/${path}`;
+
+    actionBlock.innerHTML = `
+      <button class="btn" onclick="executeDownload('${path}', '${filename}')">Download</button>
+      <button class="btn primary" onclick="dismissAllSystemModals()">Close Space</button>
+    `;
+
+    if (kind === 'text') {
+      const fileData = await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}?ref=${storageState.branch}`);
+      if (fileData.error) {
+        viewport.innerHTML = '<div style="padding:20px;">Decryption Error</div>';
+        return;
+      }
+      const rawStringContent = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g, ''))));
+      
+      viewport.innerHTML = `
+        <div class="zen-editor-area">
+          <textarea id="workspace-canvas-textarea" class="zen-textarea">${rawStringContent}</textarea>
+        </div>
+      `;
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'btn';
+      saveBtn.style.borderColor = 'var(--zen-accent)';
+      saveBtn.style.color = 'var(--zen-accent)';
+      saveBtn.textContent = 'Commit Changes to Cloud';
+      saveBtn.onclick = () => executeLiveCloudCommit(path, fileData.sha);
+      actionBlock.insertBefore(saveBtn, actionBlock.firstChild);
+
+    } else if (kind === 'pdf') {
+      const stream = await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}?ref=${storageState.branch}`);
+      const rawBinary = compileBase64ToBinary(stream.content.replace(/\s/g, ''));
+      const blob = new Blob([rawBinary], { type: 'application/pdf' });
+      viewport.innerHTML = `<iframe src="${URL.createObjectURL(blob)}" class="preview-iframe"></iframe>`;
+    } else if (kind === 'image') {
+      viewport.innerHTML = `<img src="${directCdnUrl}" style="max-width:100%; max-height:100%; object-fit:contain; margin:auto;" />`;
+    } else {
+      viewport.innerHTML = `<div style="margin:auto; text-align:center; color:var(--zen-text-muted)"><p>${filename}</p><p style="font-size:11px; margin-top:6px;">Preview unavailable. Use Download parameter.</p></div>`;
+    }
+    logHistoryRecord(path, 'file');
+  }
+
+  async function executeLiveCloudCommit(path, originSha) {
+    const updatedPayloadText = document.getElementById('workspace-canvas-textarea').value;
+    dispatchNotificationToast('Staging structural workspace update commit...');
+
+    const transaction = await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}`, 'PUT', {
+      message: `Cloud Live Workspace Sync Update: Modify unified node data asset ${path}`,
+      content: btoa(unescape(encodeURIComponent(updatedPayloadText))),
+      sha: originSha,
+      branch: storageState.branch
+    });
+
+    if (transaction.error) {
+      dispatchNotificationToast('Cloud trace rejected structural data sync.');
+    } else {
+      dispatchNotificationToast('Workspace execution committed cleanly to cloud storage tree.');
+      dismissAllSystemModals();
+      routeActiveNavigation(currentDirectoryPath);
+    }
+  }
+
+  // OMNI COMMAND PALETTE OVERLAY FRAMEWORK
+  function initializeGlobalEventInterceptors() {
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        toggleCommandPaletteHarness();
+      }
+      if (e.key === 'Escape') dismissAllSystemModals();
+    });
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.context-menu').forEach(m => m.style.display = 'none');
+      document.getElementById('new-menu').classList.remove('show');
+    });
+
+    const dropZone = document.getElementById('drag-drop-zone');
+    window.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.display = 'flex'; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.display = 'none');
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.style.display = 'none';
+      const items = e.dataTransfer.items;
+      if (!items) return;
+
+      const queue = [];
+      const tasks = [];
+      for(let i=0; i<items.length; i++) {
+        const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+        if (entry) tasks.push(traverseDroppedTreeNodes(entry, '', queue));
+      }
+      await Promise.all(tasks);
+      executeUploadTransactionLifecycle(queue);
+    });
+  }
+
+  function toggleCommandPaletteHarness() {
+    const palette = document.getElementById('modal-palette');
+    palette.classList.toggle('open');
+    if (palette.classList.contains('open')) {
+      const input = document.getElementById('palette-search-input');
+      input.value = '';
+      input.focus();
+      handlePaletteSearch();
+    }
+  }
+
+  function handlePaletteSearch() {
+    const query = document.getElementById('palette-search-input').value.toLowerCase();
+    const container = document.getElementById('palette-results-container');
+    container.innerHTML = '';
+
+    const internalSystemCommands = [
+      { name: '↳ Navigation: Jump to Root Workspace', action: () => routeActiveNavigation('') },
+      { name: '↳ Display: Switch to Grid View Mode Layout', action: () => shiftActiveViewPresentationMode('grid') },
+      { name: '↳ Display: Switch to List View Mode Layout', action: () => shiftActiveViewPresentationMode('list') },
+      { name: '↳ Command: Synchronize Drive Repository Target Tree State', action: () => refreshActiveDirectoryNode() }
+    ];
+
+    const contextFilteredCommands = internalSystemCommands.filter(c => c.name.toLowerCase().includes(query));
+    contextFilteredCommands.forEach(cmd => {
+      const row = document.createElement('div');
+      row.className = 'palette-row';
+      row.innerHTML = `<span>${cmd.name}</span><span style="font-size:10px; opacity:0.5;">System Action</span>`;
+      row.onclick = () => { cmd.action(); toggleCommandPaletteHarness(); };
+      container.appendChild(row);
+    });
+
+    activeDirectoryFilesMap.filter(f => f.name.toLowerCase().includes(query)).forEach(file => {
+      const row = document.createElement('div');
+      row.className = 'palette-row';
+      row.innerHTML = `<span>${file.name}</span><span style="font-size:10px; opacity:0.5;">${file.type}</span>`;
+      row.onclick = () => {
+        toggleCommandPaletteHarness();
+        if (file.type === 'dir') routeActiveNavigation(file.path);
+        else triggerWorkspaceCanvas(file.path, file.name);
+      };
+      container.appendChild(row);
+    });
+  }
+
+  // COMPONENT BOOKMARK INTERFACE MECHANICS
+  function toggleBookmarkAction(path) {
+    let bookmarks = JSON.parse(localStorage.getItem('cloud_bookmarks') || '[]');
+    if (bookmarks.includes(path)) {
+      bookmarks = bookmarks.filter(b => b !== path);
+      dispatchNotificationToast('Pinned bookmark link removed.');
+    } else {
+      bookmarks.push(path);
+      dispatchNotificationToast('Pinned tracking link to sidebar bookmarks.');
+    }
+    localStorage.setItem('cloud_bookmarks', JSON.stringify(bookmarks));
+    renderFileSystemExplorerView(activeDirectoryFilesMap);
+  }
+
+  function renderSpecialCategory(mode) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`nav-${mode}`).classList.add('active');
+    
+    const viewGrid = document.getElementById('wrapper-grid');
+    const viewList = document.getElementById('list-tbody-runtime');
+    const emptyState = document.getElementById('view-empty-state');
+
+    viewGrid.innerHTML = '';
+    viewList.innerHTML = '';
+
+    if (mode === 'bookmarks') {
+      document.getElementById('breadcrumb-flow').innerHTML = '<span class="active-node">Cloud Bookmark Workspace Matrix</span>';
+      const bookmarks = JSON.parse(localStorage.getItem('cloud_bookmarks') || '[]');
+      if (bookmarks.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      bookmarks.forEach(path => {
+        const name = path.split('/').pop() || 'Workspace Sub-Node Link';
+        const card = document.createElement('div');
+        card.className = 'grid-card';
+        card.innerHTML = `
+          <div class="preview-thumbnail">${fetchFolderIcon()}</div>
+          <span class="title" title="${name}">${name}</span>
+          <span class="size">Bookmarked Object Route</span>
+        `;
+        card.onclick = () => routeActiveNavigation(path);
+        viewGrid.appendChild(card);
+      });
+    } else if (mode === 'recent') {
+      document.getElementById('breadcrumb-flow').innerHTML = '<span class="active-node">Recents Execution Map Timeline</span>';
+      const history = JSON.parse(localStorage.getItem('cloud_history_cache') || '[]');
+      if (history.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      history.forEach(log => {
+        const card = document.createElement('div');
+        card.className = 'grid-card';
+        card.innerHTML = `
+          <div class="preview-thumbnail">${log.type === 'dir' ? fetchFolderIcon() : fetchFileIcon(log.name)}</div>
+          <span class="title" title="${log.name}">${log.name}</span>
+          <span class="size">${formatTimeScale(log.timestamp)}</span>
+        `;
+        card.onclick = () => {
+          if (log.type === 'dir') routeActiveNavigation(log.path);
+          else triggerWorkspaceCanvas(log.path, log.name);
+        };
+        viewGrid.appendChild(card);
+      });
+    }
+  }
+
+  // IO TRANSACTION CORE UTILITIES
+  function invokeFileInputBridge(id) { document.getElementById(id).click(); }
+
+  async function ingestLocalPayloadStream(e) {
+    const queue = [];
+    const targetFiles = e.target.files;
+    for(let i=0; i<targetFiles.length; i++) {
+      const file = targetFiles[i];
+      queue.push({ blob: file, path: file.webkitRelativePath || file.name });
+    }
+    await executeUploadTransactionLifecycle(queue);
+  }
+
+  async function executeUploadTransactionLifecycle(queue) {
+    if (queue.length === 0) return;
+    dispatchNotificationToast(`Streaming pipeline load parameters for ${queue.length} files...`);
+
+    let successfullyAllocated = 0;
+    for (const item of queue) {
+      const pathTarget = currentDirectoryPath ? `${currentDirectoryPath}/${item.path}` : item.path;
+      const base64 = await convertBlobToBase64StringStream(item.blob);
+      
+      const lookupPreCheck = await sendRequestGateway(`/repos/${storageState.repo}/contents/${pathTarget}?ref=${storageState.branch}`);
+      const body = {
+        message: `Cloud Drive Asset Commited Upload Vector Sequence: Synced node targeting ${pathTarget}`,
+        content: base64,
+        branch: storageState.branch
+      };
+      if (!lookupPreCheck.error && lookupPreCheck.sha) body.sha = lookupPreCheck.sha;
+
+      const tx = await sendRequestGateway(`/repos/${storageState.repo}/contents/${pathTarget}`, 'PUT', body);
+      if (!tx.error) successfullyAllocated++;
+    }
+
+    dispatchNotificationToast(`Batch operations completed successfully. Managed ${successfullyAllocated} allocations.`);
+    routeActiveNavigation(currentDirectoryPath);
+  }
+
+  function convertBlobToBase64StringStream(blob) {
+    return new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.onerror = (err) => rej(err);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function executeDownload(path, filename) {
+    dispatchNotificationToast('Resolving remote network proxy array endpoint links...');
+    const streamData = await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}?ref=${storageState.branch}`);
+    if (streamData.error) return;
+
+    const binary = compileBase64ToBinary(streamData.content.replace(/\s/g, ''));
+    const blob = new Blob([binary], { type: 'application/octet-stream' });
+    const anchor = document.createElement('a');
+    anchor.href = URL.createObjectURL(blob);
+    anchor.download = filename;
+    anchor.click();
+  }
+
+  async function executePurgeSequence(path, type, name) {
+    if (!confirm(`Authorize deletion profile execution mapping for: "${name}"?`)) return;
+    
+    if (type === 'dir') {
+      await recursiveRemoteTreeWipe(path);
+    } else {
+      const preCheck = await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}?ref=${storageState.branch}`);
+      await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}`, 'DELETE', {
+        message: `Cloud Structural Asset Purge Sequence: Deleting active node ${name}`,
+        sha: preCheck.sha,
+        branch: storageState.branch
+      });
+    }
+    dispatchNotificationToast('Target workspace cloud objects dropped safely.');
+    routeActiveNavigation(currentDirectoryPath);
+  }
+
+  async function recursiveRemoteTreeWipe(path) {
+    const lookup = await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}?ref=${storageState.branch}`);
+    if (lookup.error || !Array.isArray(lookup)) return;
+    for (const node of lookup) {
+      if (node.type === 'dir') await recursiveRemoteTreeWipe(node.path);
+      else await sendRequestGateway(`/repos/${storageState.repo}/contents/${node.path}`, 'DELETE', {
+        message: `Recursive cascade tree optimization: Purging standard leaf node ${node.path}`,
+        sha: node.sha,
+        branch: storageState.branch
+      });
+    }
+  }
+
+  function launchDirectoryModalOverlay() {
+    document.getElementById('modal-folder-create').classList.add('open');
+    document.getElementById('field-new-folder-name').focus();
+  }
+
+  async function executeRemoteDirectoryAllocation() {
+    const name = document.getElementById('field-new-folder-name').value.trim();
+    if (!name) return;
+    dismissAllSystemModals();
+
+    const path = currentDirectoryPath ? `${currentDirectoryPath}/${name}/.gitkeep` : `${name}/.gitkeep`;
+    await sendRequestGateway(`/repos/${storageState.repo}/contents/${path}`, 'PUT', {
+      message: `Cloud Workspace Sub-Directory Creation Stream Node Pointer: Target allocation for ${name}`,
+      content: btoa(''),
+      branch: storageState.branch
+    });
+    routeActiveNavigation(currentDirectoryPath);
+  }
+
+  function triggerShareModal(path) {
+    const modal = document.getElementById('modal-share');
+    document.getElementById('share-link-app').value = `${window.location.origin}${window.location.pathname}?path=${encodeURIComponent(path)}`;
+    modal.classList.add('open');
+  }
+
+  function executeShareClipboardCopy() {
+    document.getElementById('share-link-app').select();
+    document.execCommand('copy');
+    dispatchNotificationToast('View path share link successfully mapped to hardware clipboard.');
+    dismissAllSystemModals();
+  }
+
+  // ATOMIC DATA CONVERSION PARSERS
+  function compileBase64ToBinary(base64Str) {
+    const raw = atob(base64Str);
+    const buffer = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) buffer[i] = raw.charCodeAt(i);
+    return buffer;
+  }
+
+  function resolveFormatKind(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return 'image';
+    if (['pdf'].includes(ext)) return 'pdf';
+    if (['txt', 'md', 'json', 'html', 'css', 'js', 'ts', 'py', 'cs', 'sql', 'sh', 'yaml'].includes(ext)) return 'text';
+    return 'binary';
+  }
+
+  // REFRESH CORE NODE ACTION INTERCEPTOR
+  async function refreshActiveDirectoryNode() { 
+    if (document.getElementById('nav-bookmarks').classList.contains('active')) {
+      renderSpecialCategory('bookmarks');
+    } else if (document.getElementById('nav-recent').classList.contains('active')) {
+      renderSpecialCategory('recent');
+    } else {
+      await routeActiveNavigation(currentDirectoryPath); 
+    }
+  }
+
+  function formatSize(b) {
+    if (!b) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function formatTimeScale(timestamp) {
+    const diff = Math.floor((Date.now() - timestamp) / 1000);
+    if (diff < 60) return 'Just now';
+    const m = Math.floor(diff / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  }
+
+  function logHistoryRecord(path, type) {
+    let cache = JSON.parse(localStorage.getItem('cloud_history_cache') || '[]');
+    cache = cache.filter(c => c.path !== path);
+    cache.unshift({ path, type, name: path.split('/').pop() || 'Root Storage Space Workspace', timestamp: Date.now() });
+    if (cache.length > 20) cache.pop();
+    localStorage.setItem('cloud_history_cache', JSON.stringify(cache));
+  }
+
+  function traverseDroppedTreeNodes(item, path, queue) {
+    return new Promise(res => {
+      if (item.isFile) {
+        item.file(blob => {
+          queue.push({ blob, path: path ? `${path}/${item.name}` : item.name });
+          res();
+        });
+      } else if (item.isDirectory) {
+        const reader = item.createReader();
+        const localPath = path ? `${path}/${item.name}` : item.name;
+        const read = () => {
+          reader.readEntries(async entries => {
+            if (entries.length === 0) { res(); return; }
+            await Promise.all(entries.map(e => traverseDroppedTreeNodes(e, localPath, queue)));
+            read();
+          });
+        };
+        read();
+      } else res();
+    });
+  }
+
+  function executeSearchLookupPipeline() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    renderFileSystemExplorerView(activeDirectoryFilesMap.filter(f => f.name.toLowerCase().includes(query)));
+  }
+
+  function shiftActiveViewPresentationMode(mode) {
+    currentViewLayoutMode = mode;
+    localStorage.setItem('cloud_view_mode', mode);
+    document.getElementById('wrapper-grid').classList.toggle('active', mode === 'grid');
+    document.getElementById('wrapper-list').classList.toggle('active', mode === 'list');
+    document.getElementById('toggle-grid-btn').classList.toggle('active', mode === 'grid');
+    document.getElementById('toggle-list-btn').classList.toggle('active', mode === 'list');
+  }
+
+  function toggleDropdownMenuMenu(e) { e.stopPropagation(); document.getElementById('new-menu').classList.toggle('show'); }
+  function toggleSidebarViewLayout() { document.getElementById('app-sidebar').classList.toggle('open'); }
+  function dismissAllSystemModals() { 
+    document.querySelectorAll('.modal-overlay:not(#modal-auth-interceptor)').forEach(m => m.classList.remove('open')); 
+    document.getElementById('preview-render-viewport').innerHTML = ''; 
+  }
+  
+  function dispatchNotificationToast(msg) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast-card';
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3500);
+  }
+
+  function fetchFolderIcon() { return `<svg viewBox="0 0 24 24" fill="none" stroke="var(--zen-accent)" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`; }
+  function fetchFileIcon() { return `<svg viewBox="0 0 24 24" fill="none" stroke="var(--zen-text-muted)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`; }
+</script>
+</body>
+</html>
